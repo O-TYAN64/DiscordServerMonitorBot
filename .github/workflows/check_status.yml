@@ -15,7 +15,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -27,10 +27,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install aiohttp
+        run: pip install -r requirements.txt
 
       - name: Run status checker
         env:
           SERVER_NAMES: ${{ github.event.inputs.server_names }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: python src/check_status.py
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          GAME_SERVER_API_KEY: ${{ secrets.GAME_SERVER_API_KEY }}
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: |
+          cd src
+          python check_status.py

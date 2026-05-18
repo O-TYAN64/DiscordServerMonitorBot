@@ -1,15 +1,28 @@
-# 🖥️ Discord Server Monitor Bot
+# 🖥️ Discord Server Monitor Bot  v2
 
-Discord のスラッシュコマンドでサーバーのステータスを確認する Bot です。  
-コマンドを受け取ると **GitHub Actions** がステータスチェックを実行し、結果を Discord に投稿します。
+Discord スラッシュコマンドでサーバーのステータスを確認する Bot です。  
+コマンドを受け取ると **GitHub Actions** がチェックを実行し、結果を Discord に Embed で投稿します。
 
-## 対応サーバー種類
+## 対応サーバー種別
 
-| 種類 | 確認内容 |
+| 種別 | 確認内容 |
 |------|----------|
-| `web` | HTTP ステータスコード・レイテンシ |
-| `ark` | TCP 死活 + UDP A2S_INFO（プレイヤー数・マップ） |
-| `vrchat` | VRChat API でワールド情報・滞在人数 |
+| `minecraft` | SLP プロトコル（バージョン・MOTD・プレイヤー数） |
+| `ark` | Steam A2S（マップ・プレイヤー数） |
+| `valheim` | Steam A2S |
+| `rust` | Steam A2S |
+| `cs2` / `csgo` | Steam A2S |
+| `palworld` | Steam A2S |
+| `7dtd` | Steam A2S |
+| `terraria` | TCP ping + REST API (tModLoader) |
+| `vrchat` | VRChat 公式 API（ワールド・滞在人数） |
+| `steam_query` | Steam A2S 汎用 |
+| `web` | HTTP/HTTPS ステータスコード・レイテンシ |
+| `api` | カスタム REST エンドポイント |
+| `steam_server_list` | Steam Web API でサーバー情報取得 |
+| `game_server_api` | api.gameserverapi.com 汎用 API |
+| `aws` | AWS Health Dashboard |
+| `cloudflare` | Cloudflare Status + Zone API |
 
 ---
 
@@ -19,54 +32,64 @@ Discord のスラッシュコマンドでサーバーのステータスを確認
 
 1. [Discord Developer Portal](https://discord.com/developers/applications) でアプリを作成
 2. **Bot** タブ → トークンをコピー
-3. **OAuth2 → URL Generator** で `bot` + `applications.commands` スコープを選択  
-   権限: `Send Messages`, `Embed Links`
-4. 生成された URL でサーバーに招待
+3. **OAuth2 → URL Generator** で `bot` + `applications.commands` を選択
+4. 権限: `Send Messages`, `Embed Links` を付与してサーバーに招待
 
 ### 2. Discord Webhook の作成
 
-1. 結果を投稿したいチャンネルの **設定 → 連携サービス → Webhook** を作成
-2. Webhook URL をコピー
+結果を投稿したいチャンネルで **設定 → 連携サービス → Webhook** を作成し URL をコピー
 
 ### 3. GitHub Secrets の設定
 
-リポジトリの **Settings → Secrets and variables → Actions** に以下を追加:
-
-| シークレット名 | 内容 |
-|----------------|------|
-| `DISCORD_TOKEN` | Discord Bot トークン |
-| `DISCORD_WEBHOOK` | Discord Webhook URL |
-| `GH_PAT` | GitHub Personal Access Token (`workflow` スコープ必須) |
-
-### 4. GitHub Actions の有効化
-
-リポジトリを push した後、**Actions** タブで `Run Discord Bot` ワークフローを手動実行します。
-
-> ⚠️ GitHub Actions の無料枠はパブリックリポジトリは無制限、プライベートは月 2,000 分です。
+| シークレット名 | 必須 | 内容 |
+|----------------|------|------|
+| `DISCORD_TOKEN` | ✅ | Discord Bot トークン |
+| `DISCORD_WEBHOOK` | ✅ | Discord Webhook URL |
+| `GH_PAT` | ✅ | GitHub PAT (`workflow` スコープ) |
+| `STEAM_API_KEY` | ☑️ | Steam Web API キー (`steam_server_list` 種別) |
+| `GAME_SERVER_API_KEY` | ☑️ | Game Server API キー |
+| `CF_API_KEY` | ☑️ | Cloudflare API キー (ゾーン確認) |
+| `CF_ZONE_ID` | ☑️ | Cloudflare Zone ID |
 
 ---
 
-## 使い方
+## スラッシュコマンド
 
 | コマンド | 説明 |
 |----------|------|
 | `/status` | 全サーバーのステータスを確認 |
-| `/status name:サーバー名` | 指定サーバーのステータスを確認 |
-| `/add_server name:識別名 type:種類 host:ホスト port:ポート` | サーバーを追加 |
+| `/status name:識別名` | 指定サーバーのステータスを確認 |
+| `/add_server name:識別名 type:種別 host:ホスト` | サーバーを追加 |
 | `/remove_server name:識別名` | サーバーを削除 |
-| `/list_servers` | 登録済みサーバー一覧を表示 |
+| `/list_servers` | 登録済みサーバー一覧 |
+| `/server_types` | 対応種別一覧を表示 |
 
-### サーバー追加の例
+### サーバー追加例
 
 ```
-# Web サーバー
-/add_server name:mysite type:web host:example.com port:443 label:自分のサイト
+# Minecraft
+/add_server name:mc1 type:minecraft host:mc.example.com port:25565 label:自分のMC
 
-# ARK サーバー
-/add_server name:ark1 type:ark host:192.168.1.100 port:7777 label:ARKサーバー
+# ARK
+/add_server name:ark1 type:ark host:192.168.1.100 port:7777
 
-# VRChat ワールド (host に World ID を入力)
-/add_server name:vrc1 type:vrchat host:wrld_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx label:私のワールド
+# Steam Web API でサーバー取得
+/add_server name:rust1 type:steam_server_list host:1.2.3.4 port:28015
+
+# Game Server API
+/add_server name:rust2 type:game_server_api host:1.2.3.4 port:28015 extra:{"game":"rust"}
+
+# カスタム REST API (expect_key/expect_value でオンライン判定)
+/add_server name:myapi type:api host:https://myserver.com endpoint:/api/health extra:{"expect_key":"status","expect_value":"ok"}
+
+# AWS 東京リージョン
+/add_server name:aws_tokyo type:aws host:ap-northeast-1 extra:{"services":"ec2,rds,s3"}
+
+# Cloudflare + Zone 確認
+/add_server name:cf type:cloudflare host:global extra:{"cf_zone_id":"your_zone_id"}
+
+# Terraria (REST API 有効)
+/add_server name:terra type:terraria host:1.2.3.4 port:7777 extra:{"rest_port":7878}
 ```
 
 ---
@@ -77,38 +100,42 @@ Discord のスラッシュコマンドでサーバーのステータスを確認
 discord-server-monitor/
 ├── .github/workflows/
 │   ├── check_status.yml   # ステータスチェック (workflow_dispatch)
-│   └── run_bot.yml        # Discord Bot の常駐起動
+│   └── run_bot.yml        # Discord Bot 起動
 ├── src/
-│   ├── bot.py             # Discord Bot (スラッシュコマンド)
-│   └── check_status.py    # ステータスチェッカー (Actions から呼ばれる)
+│   ├── bot.py             # Discord Bot
+│   ├── checkers.py        # 全サーバー種別チェッカー
+│   ├── embeds.py          # Discord Embed 生成
+│   └── check_status.py    # Actions エントリポイント
 ├── config/
 │   └── servers.json       # 監視サーバー設定
 └── requirements.txt
 ```
 
----
-
 ## 仕組み
 
 ```
-Discord ユーザー
-    │  /status コマンド
-    ▼
-Discord Bot (bot.py)
-    │  GitHub API で workflow_dispatch をトリガー
-    ▼
-GitHub Actions (check_status.yml)
-    │  check_status.py を実行
-    ▼
-各サーバーへの接続チェック
-    │  結果を Discord Webhook で投稿
-    ▼
-Discord チャンネルに Embed で結果表示
+Discord ユーザー (/status)
+       │
+       ▼
+bot.py (GitHub Actions workflow_dispatch をトリガー)
+       │
+       ▼
+check_status.yml (GitHub Actions)
+       │
+       ▼
+checkers.py (種別ごとのチェック実行)
+  ├─ Minecraft SLP
+  ├─ Steam A2S (ARK/Valheim/Rust/CS2/Palworld/7DTD)
+  ├─ VRChat API
+  ├─ Steam Web API
+  ├─ Game Server API
+  ├─ AWS Health API
+  ├─ Cloudflare Status API
+  └─ HTTP/REST チェック
+       │
+       ▼
+embeds.py (Discord Embed 生成)
+       │
+       ▼
+Discord Webhook → チャンネルに結果投稿
 ```
-
-## 注意事項
-
-- `/add_server` でサーバーを追加すると `config/servers.json` がローカルに書き込まれます。  
-  GitHub Actions 環境は一時的なので、**永続化したい場合はリポジトリに push するか、外部ストレージ（Gist, S3 等）を使用してください。**
-- VRChat の World ID は `wrld_` で始まる UUID です。VRChat のワールドページ URL から確認できます。
-- ARK の A2S_INFO クエリはサーバー側でクエリポートが開放されている必要があります（デフォルトはゲームポートと同一）。

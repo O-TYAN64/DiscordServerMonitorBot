@@ -1,20 +1,198 @@
 {
-  "example_web": {
+  "_readme": {
     "type": "web",
-    "host": "example.com",
+    "host": "raw.githubusercontent.com",
     "port": 443,
-    "label": "Example Web サーバー"
+    "label": "⚠️ このファイルについて: _example_で始まるエントリはサンプルです。自分のサーバーを追加して_exampleエントリは削除してください"
   },
-  "example_ark": {
-    "type": "ark",
-    "host": "192.168.1.100",
-    "port": 7777,
-    "label": "ARK サーバー"
+
+  "── Minecraft 公式パートナー・有名公開サーバー ──────────────────": {
+    "type": "web", "host": "example.com", "port": 443, "label": "─── セパレータ（削除してOK）───"
   },
-  "example_vrchat": {
-    "type": "vrchat",
-    "host": "wrld_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+
+  "hypixel": {
+    "type": "minecraft",
+    "host": "mc.hypixel.net",
+    "port": 25565,
+    "label": "Hypixel (世界最大 Minecraft サーバー)"
+  },
+  "cubecraft_java": {
+    "type": "minecraft",
+    "host": "play.cubecraft.net",
+    "port": 25565,
+    "label": "CubeCraft Games (Java) - Mojang公式パートナー"
+  },
+  "the_hive": {
+    "type": "minecraft",
+    "host": "play.hivemc.com",
+    "port": 19132,
+    "label": "The Hive (Bedrock) - Mojang公式パートナー"
+  },
+  "wynncraft": {
+    "type": "minecraft",
+    "host": "play.wynncraft.com",
+    "port": 25565,
+    "label": "Wynncraft (MMORPG 系)"
+  },
+
+  "── Rust 公式サーバー (Facepunch) ──────────────────────────────": {
+    "type": "web", "host": "example.com", "port": 443, "label": "─── セパレータ（削除してOK）───"
+  },
+
+  "rust_facepunch_eu1": {
+    "type": "rust",
+    "host": "79.137.98.16",
+    "port": 28015,
+    "label": "[EU] Facepunch 1 (公式)"
+  },
+  "rust_facepunch_eu2": {
+    "type": "rust",
+    "host": "79.137.98.7",
+    "port": 28015,
+    "label": "[EU] Facepunch 2 (公式)"
+  },
+  "rust_facepunch_eu1_steam": {
+    "type": "steam_server_list",
+    "host": "79.137.98.16",
+    "port": 28015,
+    "label": "[EU] Facepunch 1 (Steam Web API 版)"
+  },
+
+  "── CS2 / CS:GO 公式 Valve サーバー ───────────────────────────": {
+    "type": "web", "host": "example.com", "port": 443, "label": "─── セパレータ（削除してOK）───"
+  },
+
+  "cs2_valve_tokyo": {
+    "type": "web",
+    "host": "sgp-1.valve.net",
+    "port": 443,
+    "label": "Valve Game Servers (アジア/東京近辺 疎通確認)"
+  },
+
+  "── VRChat 公式ワールド ─────────────────────────────────────────": {
+    "type": "web", "host": "https://api.vrchat.cloud", "port": 443, "label": "─── セパレータ（削除してOK）───"
+  },
+
+
+  "── インフラ監視 ────────────────────────────────────────────────": {
+    "type": "web", "host": "example.com", "port": 443, "label": "─── セパレータ（削除してOK）───"
+  },
+
+  "aws_tokyo": {
+    "type": "aws",
+    "host": "ap-northeast-1",
     "port": 0,
-    "label": "VRChat ワールド"
+    "services": "ec2,rds,s3,lambda,cloudfront",
+    "label": "AWS 東京リージョン (ap-northeast-1)"
+  },
+  "aws_global": {
+    "type": "aws",
+    "host": "global",
+    "port": 0,
+    "services": "ec2,s3,cloudfront,route53",
+    "label": "AWS グローバル ステータス"
+  },
+  "cloudflare_global": {
+    "type": "cloudflare",
+    "host": "global",
+    "port": 0,
+    "label": "Cloudflare グローバル ステータス"
+  },
+
+  "── Web / API エンドポイント ────────────────────────────────────": {
+    "type": "web", "host": "example.com", "port": 443, "label": "─── セパレータ（削除してOK）───"
+  },
+
+  "steam_api": {
+    "type": "web",
+    "host": "api.steampowered.com",
+    "port": 443,
+    "label": "Steam Web API (疎通確認)"
+  },
+  "vrchat_api": {
+    "type": "api",
+    "host": "https://api.vrchat.cloud",
+    "port": 443,
+    "endpoint": "/api/1/config",
+    "method": "GET",
+    "expect_key": "apiKey",
+    "label": "VRChat 公式 API ヘルスチェック"
+  },
+
+  "── 自分のサーバーをここに追加 ─────────────────────────────────": {
+    "type": "web", "host": "example.com", "port": 443, "label": "─── セパレータ（削除してOK）───"
+  },
+
+  "_example_minecraft": {
+    "type": "minecraft",
+    "host": "YOUR_MC_SERVER_IP",
+    "port": 25565,
+    "label": "自分の Minecraft サーバー"
+  },
+  "_example_ark": {
+    "type": "ark",
+    "host": "YOUR_ARK_IP",
+    "port": 7777,
+    "label": "自分の ARK サーバー"
+  },
+  "_example_valheim": {
+    "type": "valheim",
+    "host": "YOUR_VALHEIM_IP",
+    "port": 2457,
+    "label": "自分の Valheim サーバー"
+  },
+  "_example_rust": {
+    "type": "rust",
+    "host": "YOUR_RUST_IP",
+    "port": 28015,
+    "label": "自分の Rust サーバー"
+  },
+  "_example_cs2": {
+    "type": "cs2",
+    "host": "YOUR_CS2_IP",
+    "port": 27015,
+    "label": "自分の CS2 サーバー"
+  },
+  "_example_palworld": {
+    "type": "palworld",
+    "host": "YOUR_PALWORLD_IP",
+    "port": 8211,
+    "label": "自分の Palworld サーバー"
+  },
+  "_example_7dtd": {
+    "type": "7dtd",
+    "host": "YOUR_7DTD_IP",
+    "port": 26900,
+    "label": "自分の 7DTD サーバー"
+  },
+  "_example_terraria": {
+    "type": "terraria",
+    "host": "YOUR_TERRARIA_IP",
+    "port": 7777,
+    "rest_port": 7878,
+    "label": "自分の Terraria サーバー"
+  },
+  "_example_custom_api": {
+    "type": "api",
+    "host": "https://YOUR_SERVER_DOMAIN",
+    "port": 443,
+    "endpoint": "/api/v1/health",
+    "method": "GET",
+    "expect_key": "status",
+    "expect_value": "ok",
+    "label": "自前 REST API"
+  },
+  "_example_steam_webapi": {
+    "type": "steam_server_list",
+    "host": "YOUR_GAME_SERVER_IP",
+    "port": 27015,
+    "label": "自分のゲームサーバー (Steam Web API)"
+  },
+  "_example_gsa": {
+    "type": "game_server_api",
+    "host": "YOUR_GAME_SERVER_IP",
+    "port": 28015,
+    "game": "rust",
+    "label": "自分のゲームサーバー (Game Server API)"
   }
 }
