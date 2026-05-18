@@ -1,27 +1,33 @@
-name: VRChat Bot
+name: Run Discord Bot
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  workflow_dispatch:
+    paths:
+      - "src/bot.py"
+      - "config/servers.json"
 
 jobs:
-  deploy:
+  bot:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.12"
 
-      - name: ライブラリをインストール
-        run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install discord.py aiohttp
 
-      - name: Botを起動
+      - name: Run bot
         env:
-          DISCORD_TOKEN:  ${{ secrets.DISCORD_TOKEN }}
-          VRC_USERNAME:   ${{ secrets.VRC_USERNAME }}
-          VRC_PASSWORD:   ${{ secrets.VRC_PASSWORD }}
-        run: python bot.py
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+        run: python src/bot.py

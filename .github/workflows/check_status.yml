@@ -1,0 +1,36 @@
+name: Check Server Status
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_names:
+        description: "カンマ区切りのサーバー識別名 (all で全サーバー)"
+        required: true
+        default: "all"
+      channel_id:
+        description: "Discord チャンネルID (参照用)"
+        required: false
+        default: ""
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install aiohttp
+
+      - name: Run status checker
+        env:
+          SERVER_NAMES: ${{ github.event.inputs.server_names }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python src/check_status.py

@@ -1,201 +1,264 @@
-"""
-VRChat Discord Bot
-  /vrc status   … VRChatサーバーの死活確認
-  /vrc world    … ワールド検索
-"""
+Claudeが応答を完了しました
 
+githubactionsで各サーバーゲームのサーバーを含むサーバーのステータスを確認するdiscordbotを作りたいサーバーの追加も可能で
+10:07
+
+どんなサーバーのステータスを監視したいか、もう少し教えてください！
+
+Q: 監視したいサーバーの種類は？（該当するものをすべて選択）
+A: 一般的なWebサーバー/API, ARK, vrchat
+
+Q: ステータス確認の方法は？
+A: 両方
+
+Q: GitHub Actionsの実行頻度は？
+A: コマンド実行の時にメッセージを送る
+10:07
+
+わかりました！コマンド実行時にDiscordでステータス確認するBotですね。以下の構成で作ります：
+
+    監視対象: Webサーバー/API、ARK、VRChat
+    確認方法: ping（死活）+ 各プロトコルで詳細取得
+    トリガー: Discordコマンド → GitHub Actions → 結果をDiscordに返信
+
+では作成します！
+Check frontend design skill
+
+全ファイルを作成します。まずプロジェクト構造を設計します：
+7個のファイルを作成しました, 2個のコマンドを実行しました, ファイルを読み取りました
+完了
+
+全ファイルが揃いました！構成の説明です：
+📁 ファイル構成
+ファイル	役割
+src/bot.py	Discord Bot 本体（スラッシュコマンド受付）
+src/check_status.py	ステータスチェッカー（Actions から実行）
+config/servers.json	監視サーバーの設定ファイル
+.github/workflows/check_status.yml	チェック実行ワークフロー
+.github/workflows/run_bot.yml	Bot 起動ワークフロー
+🔧 セットアップ手順
+
+① GitHub Secrets に 3 つ追加
+
+    DISCORD_TOKEN … Bot のトークン
+    DISCORD_WEBHOOK … 結果投稿先の Webhook URL
+    GH_PAT … workflow スコープ付きの Personal Access Token
+
+② リポジトリに push → Actions で Run Discord Bot を手動実行
+💬 スラッシュコマンド
+
+/status                        → 全サーバーチェック
+/status name:ark1              → 個別チェック
+/add_server name:ark1 type:ark host:1.2.3.4 port:7777
+/remove_server name:ark1
+/list_servers
+
+⚠️ 注意点
+
+    Bot は GitHub Actions で常駐起動しますが、Actions の無料枠（月 2,000 分）を消費します。長期運用にはセルフホストランナーや VPS での起動を検討してください。
+    /add_server で追加したサーバーは Actions の一時環境に書き込まれるため、リポジトリに push しないと次回起動時に消えます。永続化が必要な場合は GitHub API で servers.json を直接更新する処理の追加をお勧めします。
+
+Readme
+ドキュメント · MD 
+Bot
+PY 
+Check status
+PY 
+Servers
+コード · JSON 
+Check status
+YML 
+Run bot
+YML 
+
+
+Claude は AI のため、誤りを含む可能性があります。回答内容は必ずご確認ください。
+Bot · PY
+"""
+Discord Server Monitor Bot
+Receives slash commands and triggers GitHub Actions to check server status.
+"""
+ 
 import os
-import re
-import base64
-import urllib.parse
+import json
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
 import aiohttp
-
-# ── 設定 ──────────────────────────────────────────────────────────────────────
-
-DISCORD_TOKEN  = os.environ["DISCORD_TOKEN"]
-VRC_USERNAME   = os.environ["VRC_USERNAME"]   # VRChatのユーザー名
-VRC_PASSWORD   = os.environ["VRC_PASSWORD"]   # VRChatのパスワード
-
-VRC_API        = "https://api.vrchat.cloud/api/1"
-VRC_STATUS_URL = "https://status.vrchat.com/api/v2/summary.json"
-
-# VRChat が要求する User-Agent（アプリ名/バージョン contact:メールアドレス）
-USER_AGENT = "VRChatDiscordBot/1.0.0 contact:your-email@example.com"
-
-# ── Discord Bot セットアップ ──────────────────────────────────────────────────
-
+import asyncio
+ 
+DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
+GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+GITHUB_OWNER = os.environ["GITHUB_OWNER"]
+GITHUB_REPO = os.environ["GITHUB_REPO"]
+ 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-# ── VRChat 認証ヘルパー ───────────────────────────────────────────────────────
-
-def _basic_auth_header() -> str:
-    """Basic認証ヘッダー用 base64 文字列を生成"""
-    encoded_user = urllib.parse.quote(VRC_USERNAME, safe="")
-    encoded_pass = urllib.parse.quote(VRC_PASSWORD, safe="")
-    token = base64.b64encode(f"{encoded_user}:{encoded_pass}".encode()).decode()
-    return f"Basic {token}"
-
-
-async def vrchat_login(session: aiohttp.ClientSession) -> str | None:
-    """
-    VRChat API にログインして auth クッキーを返す。
-    ⚠ セッション上限があるため、毎回ログインせず auth クッキーを再利用してください。
-    """
+tree = bot.tree
+ 
+ 
+def load_servers() -> dict:
+    """Load servers.json config"""
+    path = os.path.join(os.path.dirname(__file__), "..", "config", "servers.json")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+ 
+ 
+def save_servers(data: dict):
+    """Save servers.json config"""
+    path = os.path.join(os.path.dirname(__file__), "..", "config", "servers.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+ 
+ 
+async def trigger_github_action(workflow_id: str, inputs: dict) -> bool:
+    """Trigger a GitHub Actions workflow dispatch"""
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/actions/workflows/{workflow_id}/dispatches"
     headers = {
-        "Authorization": _basic_auth_header(),
-        "User-Agent": USER_AGENT,
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
-    async with session.get(f"{VRC_API}/auth/user", headers=headers) as resp:
-        if resp.status == 200:
-            cookies = session.cookie_jar.filter_cookies(VRC_API)
-            auth_cookie = cookies.get("auth")
-            return auth_cookie.value if auth_cookie else None
-        return None
-
-
-def _vrc_headers() -> dict:
-    return {"User-Agent": USER_AGENT}
-
-# ── /vrc コマンドグループ ────────────────────────────────────────────────────
-
-vrc_group = app_commands.Group(name="vrc", description="VRChat 関連コマンド")
-
-
-# ── /vrc status ──────────────────────────────────────────────────────────────
-
-@vrc_group.command(name="status", description="VRChatサーバーの稼働状況を確認します")
-async def vrc_status(interaction: discord.Interaction):
-    await interaction.response.defer()
-
+    payload = {"ref": "main", "inputs": inputs}
+ 
     async with aiohttp.ClientSession() as session:
-        # 公式ステータスページ（Statuspage.io）から取得
-        try:
-            async with session.get(VRC_STATUS_URL, headers=_vrc_headers()) as resp:
-                data = await resp.json()
-        except Exception as e:
-            await interaction.followup.send(f"❌ ステータス取得に失敗しました: {e}")
-            return
-
-    overall = data.get("status", {})
-    indicator = overall.get("indicator", "unknown")  # none / minor / major / critical
-    description = overall.get("description", "不明")
-
-    # インジケーターをアイコンに変換
-    icon_map = {
-        "none":     ("🟢", 0x57F287),  # 正常
-        "minor":    ("🟡", 0xFEE75C),  # 軽微な障害
-        "major":    ("🟠", 0xFF8C00),  # 大きな障害
-        "critical": ("🔴", 0xED4245),  # 深刻な障害
-    }
-    icon, color = icon_map.get(indicator, ("⚪", 0x99AAB5))
-
-    # コンポーネント別ステータス
-    components = data.get("components", [])
-    fields = []
-    for comp in components:
-        comp_status = comp.get("status", "unknown")
-        comp_icon = "🟢" if comp_status == "operational" else "🔴"
-        fields.append({
-            "name": comp.get("name", "Unknown"),
-            "value": f"{comp_icon} {comp_status}",
-            "inline": True,
-        })
-
-    embed = discord.Embed(
-        title=f"{icon} VRChat サーバーステータス",
-        description=description,
-        color=color,
-        url="https://status.vrchat.com/",
-    )
-    for f in fields[:25]:  # Embed フィールド上限は 25
-        embed.add_field(name=f["name"], value=f["value"], inline=f["inline"])
-
-    await interaction.followup.send(embed=embed)
-
-
-# ── /vrc world ───────────────────────────────────────────────────────────────
-
-@vrc_group.command(name="world", description="VRChatのワールドを検索します")
-@app_commands.describe(
-    query="検索キーワード",
-    count="取得件数（1〜10、デフォルト5）",
-)
-async def vrc_world(
-    interaction: discord.Interaction,
-    query: str,
-    count: app_commands.Range[int, 1, 10] = 5,
-):
-    await interaction.response.defer()
-
-    async with aiohttp.ClientSession() as session:
-        # ログイン
-        auth_cookie = await vrchat_login(session)
-        if not auth_cookie:
-            await interaction.followup.send(
-                "❌ VRChat へのログインに失敗しました。`VRC_USERNAME` / `VRC_PASSWORD` を確認してください。"
-            )
-            return
-
-        # ワールド検索
-        params = {
-            "search": query,
-            "n":      count,
-            "sort":   "popularity",
-            "order":  "descending",
-        }
-        headers = {**_vrc_headers(), "Cookie": f"auth={auth_cookie}"}
-        try:
-            async with session.get(
-                f"{VRC_API}/worlds", params=params, headers=headers
-            ) as resp:
-                if resp.status == 401:
-                    await interaction.followup.send("❌ VRChat API の認証に失敗しました。")
-                    return
-                worlds = await resp.json()
-        except Exception as e:
-            await interaction.followup.send(f"❌ ワールド検索に失敗しました: {e}")
-            return
-
-    if not worlds:
-        await interaction.followup.send(f"「{query}」に一致するワールドが見つかりませんでした。")
+        async with session.post(url, headers=headers, json=payload) as resp:
+            return resp.status == 204
+ 
+ 
+# ─────────────────────────────────────────────
+# /status  コマンド
+# ─────────────────────────────────────────────
+@tree.command(name="status", description="サーバーのステータスを確認します")
+@app_commands.describe(name="確認したいサーバー名（省略すると全サーバー）")
+async def status(interaction: discord.Interaction, name: str = "all"):
+    await interaction.response.defer(thinking=True)
+ 
+    servers = load_servers()
+ 
+    if name != "all" and name not in servers:
+        await interaction.followup.send(
+            f"❌ サーバー `{name}` は登録されていません。\n"
+            f"登録済み: {', '.join(servers.keys()) or 'なし'}"
+        )
         return
-
-    embed = discord.Embed(
-        title=f"🌐 ワールド検索: {query}",
-        color=0x5865F2,
-    )
-
-    for w in worlds[:count]:
-        capacity   = w.get("capacity", "?")
-        visits     = f"{w.get('visits', 0):,}"
-        world_id   = w.get("id", "")
-        author     = w.get("authorName", "不明")
-
+ 
+    targets = [name] if name != "all" else list(servers.keys())
+    if not targets:
+        await interaction.followup.send("⚠️ 登録されているサーバーがありません。`/add_server` で追加してください。")
+        return
+ 
+    inputs = {
+        "server_names": ",".join(targets),
+        "channel_id": str(interaction.channel_id),
+        "message_id": "0",  # 結果はbotが直接投稿
+    }
+ 
+    ok = await trigger_github_action("check_status.yml", inputs)
+    if ok:
+        await interaction.followup.send(
+            f"🔍 **{', '.join(targets)}** のステータス確認をキューに入れました。\n"
+            "GitHub Actions が実行され、結果はこのチャンネルに投稿されます。"
+        )
+    else:
+        await interaction.followup.send("❌ GitHub Actions のトリガーに失敗しました。トークンや設定を確認してください。")
+ 
+ 
+# ─────────────────────────────────────────────
+# /add_server  コマンド
+# ─────────────────────────────────────────────
+@tree.command(name="add_server", description="監視対象のサーバーを追加します")
+@app_commands.describe(
+    name="サーバーの識別名",
+    type="種類: web / ark / vrchat",
+    host="ホスト名またはIPアドレス",
+    port="ポート番号（省略可）",
+    label="表示名（省略可）",
+)
+async def add_server(
+    interaction: discord.Interaction,
+    name: str,
+    type: str,
+    host: str,
+    port: int = 0,
+    label: str = "",
+):
+    if type not in ("web", "ark", "vrchat"):
+        await interaction.response.send_message("❌ `type` は `web` / `ark` / `vrchat` のいずれかを指定してください。")
+        return
+ 
+    servers = load_servers()
+    if name in servers:
+        await interaction.response.send_message(f"⚠️ `{name}` はすでに登録されています。削除してから追加してください。")
+        return
+ 
+    servers[name] = {
+        "type": type,
+        "host": host,
+        "port": port or _default_port(type),
+        "label": label or name,
+    }
+    save_servers(servers)
+ 
+    embed = discord.Embed(title="✅ サーバー追加完了", color=0x2ECC71)
+    embed.add_field(name="識別名", value=name)
+    embed.add_field(name="種類", value=type)
+    embed.add_field(name="ホスト", value=host)
+    embed.add_field(name="ポート", value=servers[name]["port"])
+    embed.add_field(name="表示名", value=servers[name]["label"])
+    await interaction.response.send_message(embed=embed)
+ 
+ 
+# ─────────────────────────────────────────────
+# /remove_server  コマンド
+# ─────────────────────────────────────────────
+@tree.command(name="remove_server", description="監視対象のサーバーを削除します")
+@app_commands.describe(name="削除するサーバーの識別名")
+async def remove_server(interaction: discord.Interaction, name: str):
+    servers = load_servers()
+    if name not in servers:
+        await interaction.response.send_message(f"❌ `{name}` は登録されていません。")
+        return
+ 
+    del servers[name]
+    save_servers(servers)
+    await interaction.response.send_message(f"🗑️ `{name}` を削除しました。")
+ 
+ 
+# ─────────────────────────────────────────────
+# /list_servers  コマンド
+# ─────────────────────────────────────────────
+@tree.command(name="list_servers", description="登録済みサーバー一覧を表示します")
+async def list_servers(interaction: discord.Interaction):
+    servers = load_servers()
+    if not servers:
+        await interaction.response.send_message("📋 登録されているサーバーはありません。")
+        return
+ 
+    embed = discord.Embed(title="📋 登録済みサーバー一覧", color=0x3498DB)
+    for key, info in servers.items():
         embed.add_field(
-            name=w.get("name", "（名前なし）"),
-            value=(
-                f"👤 作者: {author}\n"
-                f"🧑‍🤝‍🧑 定員: {capacity} 人\n"
-                f"👣 訪問数: {visits}\n"
-                f"🔗 [VRChatで開く](https://vrchat.com/home/world/{world_id})"
-            ),
+            name=f"{info['label']} (`{key}`)",
+            value=f"種類: `{info['type']}`\nHost: `{info['host']}:{info['port']}`",
             inline=False,
         )
-
-    await interaction.followup.send(embed=embed)
-
-
-# ── Bot 起動 ─────────────────────────────────────────────────────────────────
-
+    await interaction.response.send_message(embed=embed)
+ 
+ 
+# ─────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────
+def _default_port(server_type: str) -> int:
+    return {"web": 80, "ark": 7777, "vrchat": 0}.get(server_type, 0)
+ 
+ 
 @bot.event
 async def on_ready():
-    bot.tree.add_command(vrc_group)
-    await bot.tree.sync()
-    print(f"✅ Logged in as {bot.user}")
+    await tree.sync()
+    print(f"✅ Bot ready: {bot.user} (id={bot.user.id})")
+ 
+ 
+if __name__ == "__main__":
+    bot.run(DISCORD_TOKEN)
+ 
 
-
-bot.run(DISCORD_TOKEN)
