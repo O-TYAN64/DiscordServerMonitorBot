@@ -1,0 +1,27 @@
+name: VRChat Bot
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: ライブラリをインストール
+        run: pip install -r requirements.txt
+
+      - name: Botを起動
+        env:
+          DISCORD_TOKEN:  ${{ secrets.DISCORD_TOKEN }}
+          VRC_USERNAME:   ${{ secrets.VRC_USERNAME }}
+          VRC_PASSWORD:   ${{ secrets.VRC_PASSWORD }}
+        run: python bot.py
