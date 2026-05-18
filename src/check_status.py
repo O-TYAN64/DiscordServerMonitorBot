@@ -19,8 +19,10 @@ import aiohttp
 
 from checkers import run_check, SUPPORTED_TYPES
 from embeds import build_embed
+from i18n import t, DEFAULT_LOCALE
 
 SERVERS_JSON = Path(__file__).parent.parent / "config" / "servers.json"
+LANG_JSON    = Path(__file__).parent.parent / "config" / "lang.json"
 SERVER_NAMES = [s.strip() for s in os.environ.get("SERVER_NAMES", "all").split(",") if s.strip()]
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 
@@ -28,6 +30,14 @@ DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 def load_servers() -> dict:
     with open(SERVERS_JSON, encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_locale() -> str:
+    try:
+        with open(LANG_JSON, encoding="utf-8") as f:
+            return json.load(f).get("locale", DEFAULT_LOCALE)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return DEFAULT_LOCALE
 
 
 async def post_embeds(session: aiohttp.ClientSession, embeds: list[dict]):
@@ -43,6 +53,11 @@ async def post_embeds(session: aiohttp.ClientSession, embeds: list[dict]):
 
 
 async def main():
+    locale = load_locale()
+
+    def L(key: str, **kwargs) -> str:
+        return t(key, locale, **kwargs)
+
     all_servers = load_servers()
 
     targets = list(all_servers.keys()) if SERVER_NAMES == ["all"] else [
@@ -50,15 +65,15 @@ async def main():
     ]
 
     if not targets:
-        print("チェック対象のサーバーがありません")
+        print(L("check_no_targets"))
         return
 
-    print(f"チェック対象: {', '.join(targets)}")
+    print(L("check_targets", list=", ".join(targets)))
 
     embeds: list[dict] = []
     async with aiohttp.ClientSession() as session:
         tasks = [(key, all_servers[key], run_check(key, all_servers[key], session)) for key in targets]
-        results = await asyncio.gather(*[t[2] for t in tasks], return_exceptions=True)
+        results = await asyncio.gather(*[t_[2] for t_ in tasks], return_exceptions=True)
 
         for (key, info, _), result in zip(tasks, results):
             if isinstance(result, Exception):
@@ -66,12 +81,15 @@ async def main():
             print(f"  {key}: online={result.get('online')} type={result.get('type')}")
             embeds.append(build_embed(key, info, result))
 
-    # ヘッダー embed
     header = {
-        "title": "📊 サーバーステータス レポート",
-        "description": f"**{len(targets)}** サーバーを確認しました",
+        "title": L("report_title"),
+        "description": L("report_desc", n=len(targets)),
         "color": 0x5865F2,
-        "fields": [{"name": "対応種別", "value": ", ".join(f"`{t}`" for t in SUPPORTED_TYPES), "inline": False}],
+        "fields": [{
+            "name": L("report_field_types"),
+            "value": ", ".join(f"`{t_}`" for t_ in SUPPORTED_TYPES),
+            "inline": False,
+        }],
     }
 
     async with aiohttp.ClientSession() as session:
